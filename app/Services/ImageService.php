@@ -45,6 +45,7 @@ use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image as InterventionImage;
 use Intervention\Image\Imagick\Font;
 use Intervention\Image\ImageManager;
+use Jcupitt\Vips\Image as VipsImage;
 use League\Flysystem\AwsS3V3\AwsS3V3Adapter;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemAdapter;
@@ -165,10 +166,11 @@ class ImageService
                 $format = $format ?: $extension;
                 $filename = Str::replaceLast($extension, $format, $file->getClientOriginalName());
                 $handleImage = InterventionImage::make($file)->save($format, $quality);
-                $file = new UploadedFile($handleImage->basePath(), $filename, $handleImage->mime());
+                $handleImage = VipsImage::newFromFile($file);
+                $handleImage->writeToFile($filename, ["Q" => $quality]);
+                $file = new UploadedFile($filename, $filename, mime_content_type($filename));
                 // 重新设置拓展名
                 $extension = $format;
-                $handleImage->destroy();
             }
 
             // 是否启用水印，覆盖原图片
@@ -273,6 +275,8 @@ class ImageService
         // 生成缩略图
         $this->makeThumbnail($image, $file);
 
+        // 删除临时文件
+        unlink($file->getFilename());
         return $image;
     }
 
@@ -563,7 +567,7 @@ class ImageService
 
                 @ini_set('memory_limit', '512M');
 
-                $img = InterventionImage::make($data);
+                $img = VipsImage::newFromFile($data);
 
                 $width = $w = $image->width;
                 $height = $h = $image->height;
@@ -574,8 +578,8 @@ class ImageService
                     $height = (int)($h * $scale);
                 }
 
-                $img->fit($width, $height, fn($constraint) => $constraint->upsize())->encode('png', 60)->save($pathname);
-                $img->destroy();
+                $img = $img->thumbnail_image($width, ['height' => $$height]);
+                $img->writeToFile($pathname);
             } catch (\Throwable $e) {
                 Utils::e($e, '生成缩略图时出现异常');
             }
