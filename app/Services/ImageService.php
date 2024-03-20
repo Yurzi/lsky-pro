@@ -64,6 +64,7 @@ use TencentCloud\Common\Profile\ClientProfile;
 use TencentCloud\Common\Profile\HttpProfile;
 use TencentCloud\Ims\V20201229\ImsClient;
 use TencentCloud\Ims\V20201229\Models\ImageModerationRequest;
+use Throwable;
 use WispX\Flysystem\Upyun\UpyunAdapter;
 use Zing\Flysystem\Oss\OssAdapter;
 use OSS\OssClient;
@@ -78,6 +79,9 @@ class ImageService
     public function store(Request $request): Image
     {
         $file = $request->file('file');
+        if (!$file->isValid()) {
+            throw new UploadException("上传过程出错，请重试");
+        }
 
         if (Auth::guest() && !Utils::config(ConfigKey::IsAllowGuestUpload, true)) {
             throw new UploadException('管理员关闭了游客上传');
@@ -165,12 +169,24 @@ class ImageService
                 // 获取拓展名，判断是否需要转换
                 $format = $format ?: $extension;
                 $filename = Str::replaceLast($extension, $format, $file->getClientOriginalName());
-                $handleImage = InterventionImage::make($file)->save($format, $quality);
-                $handleImage = VipsImage::newFromFile($file);
-                $handleImage->writeToFile($filename, ["Q" => $quality]);
-                $file = new UploadedFile($filename, $filename, mime_content_type($filename));
-                // 重新设置拓展名
-                $extension = $format;
+                $is_success = true;
+                try {
+                    $handleImage = VipsImage::newFromFile($file);
+                    $handleImage->writeToFile($filename, ["Q" => $quality]);
+                } catch (\Throwable $e) {
+                    $is_success = false;
+                    // 或许目标格式不合适，回落到原格式
+                    $handleImage = VipsImage::newFromFile($file);
+                    $handleImage->writeToFile($file->getClientOriginalName(), ["Q" => $quality]);
+                }
+                if ($is_success) {
+                    $file = new UploadedFile($filename, $filename, mime_content_type($filename));
+                    // 重新设置拓展名
+                    $extension = $format;
+                } else {
+                    $filename = $file->getClientOriginalName();
+                    $file = new UploadedFile($filename, $filename, mime_content_type($filename));
+                }
             }
 
             // 是否启用水印，覆盖原图片
@@ -276,7 +292,9 @@ class ImageService
         $this->makeThumbnail($image, $file);
 
         // 删除临时文件
-        unlink($file->getFilename());
+        if (file_exists($file->getFilename())) {
+            unlink($file->getRealPath());
+        }
         return $image;
     }
 
@@ -578,8 +596,8 @@ class ImageService
                     $height = (int)($h * $scale);
                 }
 
-                $img = $img->thumbnail_image($width, ['height' => $$height]);
-                $img->writeToFile($pathname);
+                $img = $img->thumbnail_image($width, ['height' => $height]);
+                $img->webpsave($pathname);
             } catch (\Throwable $e) {
                 Utils::e($e, '生成缩略图时出现异常');
             }
