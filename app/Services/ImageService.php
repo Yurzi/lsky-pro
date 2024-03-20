@@ -356,6 +356,8 @@ class ImageService
                     'bucket_endpoint' => (bool)$configs->get(MinioOption::BucketEndpoint),
                 ]),
                 bucket: $configs->get(MinioOption::Bucket),
+                // 修复AWS s3 与 B2 存储的兼容性问题
+                options: ['params' => ['ACL' => '']],
             ),
         };
     }
