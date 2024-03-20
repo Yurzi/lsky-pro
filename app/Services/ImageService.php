@@ -137,9 +137,13 @@ class ImageService
             }
 
             // 图片保存至默认相册(若有)
-            if ($albumId = $user->configs->get(UserConfigKey::DefaultAlbum)) {
-                if ($user->albums()->where('id', $albumId)->exists()) {
-                    $image->album_id = $albumId;
+            if ($request->has('album_id')) {
+                $image->album_id = $request->input('album_id');
+            } else {
+                if ($albumId = $user->configs->get(UserConfigKey::DefaultAlbum)) {
+                    if ($user->albums()->where('id', $albumId)->exists()) {
+                        $image->album_id = $albumId;
+                    }
                 }
             }
 
