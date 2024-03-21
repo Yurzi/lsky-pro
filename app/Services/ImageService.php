@@ -585,7 +585,7 @@ class ImageService
 
                 @ini_set('memory_limit', '512M');
 
-                $img = VipsImage::newFromFile($data);
+                $img = VipsImage::newFromFile($data, ['access' => 'sequential']);
 
                 $width = $w = $image->width;
                 $height = $h = $image->height;
@@ -596,7 +596,7 @@ class ImageService
                     $height = (int)($h * $scale);
                 }
 
-                $img = $img->thumbnail_image($width, ['height' => $height, 'access' => 'sequential']);
+                $img = $img->thumbnail_image($width, ['height' => $height]);
                 $img->webpsave($pathname);
             } catch (\Throwable $e) {
                 Utils::e($e, '生成缩略图时出现异常');
