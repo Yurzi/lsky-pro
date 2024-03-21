@@ -171,12 +171,12 @@ class ImageService
                 $filename = Str::replaceLast($extension, $format, $file->getClientOriginalName());
                 $is_success = true;
                 try {
-                    $handleImage = VipsImage::newFromFile($file);
+                    $handleImage = VipsImage::newFromFile($file, ['access' => 'sequential']);
                     $handleImage->writeToFile($filename, ["Q" => $quality]);
                 } catch (\Throwable $e) {
                     $is_success = false;
                     // 或许目标格式不合适，回落到原格式
-                    $handleImage = VipsImage::newFromFile($file);
+                    $handleImage = VipsImage::newFromFile($file, ['access' => 'sequential']);
                     $handleImage->writeToFile($file->getClientOriginalName(), ["Q" => $quality]);
                 }
                 if ($is_success) {
@@ -596,7 +596,7 @@ class ImageService
                     $height = (int)($h * $scale);
                 }
 
-                $img = $img->thumbnail_image($width, ['height' => $height]);
+                $img = $img->thumbnail_image($width, ['height' => $height, 'access' => 'sequential']);
                 $img->webpsave($pathname);
             } catch (\Throwable $e) {
                 Utils::e($e, '生成缩略图时出现异常');
