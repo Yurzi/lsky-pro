@@ -174,18 +174,14 @@ class ImageService
                     $handleImage = VipsImage::newFromFile($file, ['access' => 'sequential']);
                     $handleImage->writeToFile($filename, ["Q" => $quality]);
                 } catch (\Throwable $e) {
+                    // 或许目标格式不合适，回落到原图
+                    unlink($filename);
                     $is_success = false;
-                    // 或许目标格式不合适，回落到原格式
-                    $handleImage = VipsImage::newFromFile($file, ['access' => 'sequential']);
-                    $handleImage->writeToFile($file->getClientOriginalName(), ["Q" => $quality]);
                 }
                 if ($is_success) {
                     $file = new UploadedFile($filename, $filename, mime_content_type($filename));
                     // 重新设置拓展名
                     $extension = $format;
-                } else {
-                    $filename = $file->getClientOriginalName();
-                    $file = new UploadedFile($filename, $filename, mime_content_type($filename));
                 }
             }
 
